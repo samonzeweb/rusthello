@@ -1,9 +1,9 @@
 use crate::{Board, Player};
 
 const ROW_REPARATOR: &str = "  +---+---+---+---+---+---+---+---+\n";
-const LETTERS: &str =       "    A   B   C   D   E   F   G   H\n";
+const LETTERS: &str = "    A   B   C   D   E   F   G   H\n";
 
-/// Build an ascii representation of a board
+/// Builds an ascii and representation of a board.
 pub fn board_to_ascii(board: &Board) -> String {
     let mut ascii = String::new();
     ascii.push_str(LETTERS);
@@ -25,7 +25,7 @@ fn cell_to_ascii(piece: Option<Player>) -> &'static str {
     match piece {
         None => "|   ",
         Some(Player::Black) => "| X ",
-        Some(Player::White) => "| O "
+        Some(Player::White) => "| O ",
     }
 }
 
@@ -59,6 +59,6 @@ mod tests {
         let expected = expected.replace(".", " ");
         let board = Board::new_start();
         let ascii = board_to_ascii(&board);
-        assert_eq!(ascii, expected);        
+        assert_eq!(ascii, expected);
     }
 }
