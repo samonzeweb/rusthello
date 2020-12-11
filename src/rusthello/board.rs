@@ -67,6 +67,16 @@ impl Board {
         }
     }
 
+    /// Returns an iterator on the board.
+    pub fn iter(self: &Board) -> BoardIterator {
+        BoardIterator::new(self)
+    }
+
+    /// Checks if all cells are occupied.
+    pub fn full(self: &Board) -> bool {
+        self.iter().all(|(_, _, content)| content.is_some())
+    }
+
     /// Play at the given position for the given player.
     /// If the move is valid a new Board is returned, else None.
     pub fn play(&self, player: Player, x: u8, y: u8) -> Result<Option<Board>, String> {
@@ -156,6 +166,46 @@ impl fmt::Display for Board {
             f.write_str(".\n")?;
         }
         Ok(())
+    }
+}
+
+/// Implements an iterator on the board wich returns
+/// each position of the board and its content.
+#[derive(Debug)]
+pub struct BoardIterator<'a> {
+    board: &'a Board,
+    current_position: (u8, u8),
+}
+
+impl<'a> BoardIterator<'a> {
+    fn new(board: &'a Board) -> Self {
+        BoardIterator {
+            board,
+            current_position: (0, 0),
+        }
+    }
+}
+
+impl Iterator for BoardIterator<'_> {
+    type Item = (u8, u8, Option<Player>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (mut x, mut y) = self.current_position;
+
+        let current_item = if x > 7 || y > 7 {
+            None
+        } else {
+            Some((x, y, self.board.get_piece(x, y).unwrap()))
+        };
+
+        x += 1;
+        if x > 7 {
+            x = 0;
+            y += 1;
+        }
+        self.current_position = (x, y);
+
+        current_item
     }
 }
 
@@ -249,6 +299,50 @@ mod tests {
         board.cells[3][4] = Some(Player::White);
         let piece = board.get_piece(3, 4).unwrap();
         assert_eq!(piece, Some(Player::White))
+    }
+
+    #[test]
+    fn bord_iterator_returns_cells_contents() {
+        let mut board = Board::new();
+        board.set_piece(1, 0, Some(Player::Black)).unwrap();
+        let mut iterator = board.iter();
+        assert_eq!(iterator.next(), Some((0, 0, None)));
+        assert_eq!(iterator.next(), Some((1, 0, Some(Player::Black))));
+    }
+
+    #[test]
+    fn bord_iterator_iterate_over_all_cells() {
+        let board = Board::new();
+        let (mut i, mut j) = (0, 0);
+        let mut count = 0;
+        for (_, (x, y, _)) in board.iter().enumerate() {
+            count += 1;
+            assert_eq!(x, i);
+            assert_eq!(y, j);
+            i += 1;
+            if i > 7 {
+                i = 0;
+                j += 1;
+            }
+        }
+        assert_eq!(count, 64);
+    }
+
+    #[test]
+    fn full_returns_false_on_non_full_board() {
+        let board = Board::new();
+        assert_eq!(board.full(), false);
+    }
+
+    #[test]
+    fn full_returns_true_on_full_board() {
+        let mut board = Board::new();
+        for x in 0..=7 {
+            for y in 0..=7 {
+                board.set_piece(x, y, Some(Player::Black)).unwrap();
+            }
+        }
+        assert_eq!(board.full(), true);
     }
 
     #[test]
