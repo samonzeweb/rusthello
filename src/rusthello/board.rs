@@ -18,6 +18,15 @@ impl Player {
     }
 }
 
+impl fmt::Display for Player {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Player::Black => f.write_str("Black"),
+            Player::White => f.write_str("White"),
+        }
+    }
+}
+
 /// An Othello board, implementing moves.
 /// Board does not implement game workflow.
 #[derive(Debug, Copy, Clone)]
@@ -68,13 +77,9 @@ impl Board {
     }
 
     /// Returns an iterator on the board.
+    /// The iterator will returns all cells positions and their contents.
     pub fn iter(self: &Board) -> BoardIterator {
         BoardIterator::new(self)
-    }
-
-    /// Checks if all cells are occupied.
-    pub fn full(self: &Board) -> bool {
-        self.iter().all(|(_, _, content)| content.is_some())
     }
 
     /// Play at the given position for the given player.
@@ -103,7 +108,7 @@ impl Board {
         let mut new_board = self.clone();
         let other_player = player.opponent();
         let mut valid_move = false;
-        for (_, direction) in ALL_DIRECTIONS.iter().enumerate() {
+        for direction in ALL_DIRECTIONS.iter() {
             let mut navigator = CellsNavigation::new((x, y), *direction).unwrap();
             let mut found_other_on_path = false;
             let mut can_capture = false;
@@ -147,6 +152,23 @@ impl Board {
             Ok(None)
         }
     }
+
+    /// Count the pieces on the board.
+    /// It returns a tuple with black pieces count as the first item,
+    /// and white pieces count as the second.
+    pub fn count_pieces(&self) -> (u8, u8) {
+        let mut black_pieces = 0;
+        let mut white_pieces = 0;
+        for (_, _, piece) in self.iter() {
+            match piece {
+                Some(Player::Black) => black_pieces += 1,
+                Some(Player::White) => white_pieces += 1,
+                _ => (),
+            }
+        }
+
+        (black_pieces, white_pieces)
+    }
 }
 
 impl fmt::Display for Board {
@@ -174,14 +196,14 @@ impl fmt::Display for Board {
 #[derive(Debug)]
 pub struct BoardIterator<'a> {
     board: &'a Board,
-    current_position: (u8, u8),
+    grid_iterator: GridIterator,
 }
 
 impl<'a> BoardIterator<'a> {
     fn new(board: &'a Board) -> Self {
         BoardIterator {
             board,
-            current_position: (0, 0),
+            grid_iterator: GridIterator::new(),
         }
     }
 }
@@ -190,26 +212,48 @@ impl Iterator for BoardIterator<'_> {
     type Item = (u8, u8, Option<Player>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (mut x, mut y) = self.current_position;
-
-        let current_item = if x > 7 || y > 7 {
-            None
-        } else {
-            Some((x, y, self.board.get_piece(x, y).unwrap()))
-        };
-
-        x += 1;
-        if x > 7 {
-            x = 0;
-            y += 1;
+        let current_position = self.grid_iterator.next();
+        match current_position {
+            None => None,
+            Some((x, y)) => Some((x, y, self.board.get_piece(x, y).unwrap())),
         }
-        self.current_position = (x, y);
-
-        current_item
     }
 }
 
-/// Iterator to navigate from a start position upto the limit of a board.
+/// An iterator over a 8x8 grid
+#[derive(Debug)]
+pub struct GridIterator {
+    x: u8,
+    y: u8,
+}
+
+impl GridIterator {
+    pub fn new() -> Self {
+        GridIterator { x: 0, y: 0 }
+    }
+}
+
+impl Iterator for GridIterator {
+    type Item = (u8, u8);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.y > 7 {
+            return None;
+        }
+
+        let item: Self::Item = (self.x, self.y);
+        self.x += 1;
+        if self.x > 7 {
+            self.x = 0;
+            self.y += 1;
+        }
+
+        Some(item)
+    }
+}
+
+/// Iterator to navigate from a start position upto the limit of a board in
+/// a given direction.
 /// The start position is excluded from the iteration.
 /// The iterator can be reversed to go backward.
 #[derive(Debug)]
@@ -315,7 +359,7 @@ mod tests {
         let board = Board::new();
         let (mut i, mut j) = (0, 0);
         let mut count = 0;
-        for (_, (x, y, _)) in board.iter().enumerate() {
+        for (x, y, _) in board.iter() {
             count += 1;
             assert_eq!(x, i);
             assert_eq!(y, j);
@@ -326,23 +370,6 @@ mod tests {
             }
         }
         assert_eq!(count, 64);
-    }
-
-    #[test]
-    fn full_returns_false_on_non_full_board() {
-        let board = Board::new();
-        assert_eq!(board.full(), false);
-    }
-
-    #[test]
-    fn full_returns_true_on_full_board() {
-        let mut board = Board::new();
-        for x in 0..=7 {
-            for y in 0..=7 {
-                board.set_piece(x, y, Some(Player::Black)).unwrap();
-            }
-        }
-        assert_eq!(board.full(), true);
     }
 
     #[test]
@@ -408,6 +435,15 @@ mod tests {
     }
 
     #[test]
+    fn count_players_pieces() {
+        let mut board = Board::new_start();
+        board.set_piece(0, 0, Some(Player::White)).unwrap();
+        let (black, white) = board.count_pieces();
+        assert_eq!(black, 2);
+        assert_eq!(white, 3)
+    }
+
+    #[test]
     fn fmt_build_a_board_representation() {
         let board = Board::new_start();
         let mut expected = String::new();
@@ -421,6 +457,16 @@ mod tests {
         expected.push_str(empty_line);
         expected.push_str(empty_line);
         assert_eq!(format!("{}", board), expected);
+    }
+
+    #[test]
+    fn grid_iterator_generates_all_coordonates() {
+        let mut cells = [false; 64];
+        let grid_iterator = GridIterator::new();
+        for (x, y) in grid_iterator {
+            cells[(x + y * 8) as usize] = true;
+        }
+        assert!(cells.iter().all(|flag| *flag));
     }
 
     #[test]

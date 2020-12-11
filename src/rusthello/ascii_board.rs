@@ -1,4 +1,4 @@
-use crate::{Board, Player};
+use super::board::*;
 
 const ROW_REPARATOR: &str = "  +---+---+---+---+---+---+---+---+\n";
 const LETTERS: &str = "    A   B   C   D   E   F   G   H\n";
