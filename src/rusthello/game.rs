@@ -18,6 +18,10 @@ impl Game {
         }
     }
 
+    pub fn board(&self) -> &dyn BoardReader {
+        &self.board
+    }
+
     pub fn play(&mut self, player: Player, x: u8, y: u8) -> Result<(), String> {
         match self.player {
             None => return Err("None of the players can move, the game is over.".to_string()),

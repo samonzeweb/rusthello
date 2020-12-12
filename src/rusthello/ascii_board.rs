@@ -4,7 +4,7 @@ const ROW_REPARATOR: &str = "  +---+---+---+---+---+---+---+---+\n";
 const LETTERS: &str = "    A   B   C   D   E   F   G   H\n";
 
 /// Builds an ascii and representation of a board.
-pub fn board_to_ascii(board: &Board) -> String {
+pub fn board_to_ascii(board: &dyn BoardReader) -> String {
     let mut ascii = String::new();
     ascii.push_str(LETTERS);
     for y in 0..8 {
