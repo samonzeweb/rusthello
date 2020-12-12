@@ -4,6 +4,7 @@ use super::board::*;
 pub struct Game {
     board: Board,
     player: Option<Player>,
+    opponent_is_blocked: bool,
     status: GameStatus,
 }
 
@@ -14,6 +15,7 @@ impl Game {
         Game {
             board: board,
             player: Some(Player::Black),
+            opponent_is_blocked: false,
             status: GameStatus::evaluate_board(&board),
         }
     }
@@ -34,6 +36,7 @@ impl Game {
         if let Some(new_board) = result {
             self.board = new_board;
             self.update_status();
+            self.update_player();
             Ok(())
         } else {
             Err("The move is invalid.".to_string())
@@ -44,8 +47,32 @@ impl Game {
         self.status = GameStatus::evaluate_board(&self.board);
     }
 
+    fn update_player(&mut self) {
+        if self.game_over() {
+            return;
+        }
+
+        let mut player = self
+            .player
+            .expect("Unexpected None for the current player.");
+
+        // As the game isn't over, at least one player can move, then
+        // we don't need to check both cases.
+        if self.status.can_player_move(player.opponent()) {
+            player = player.opponent();
+            self.opponent_is_blocked = false;
+        } else {
+            self.opponent_is_blocked = true;
+        }
+        self.player = Some(player);
+    }
+
     pub fn player(&self) -> Option<Player> {
         self.player
+    }
+
+    pub fn opponent_is_blocked(&self) -> bool {
+        self.opponent_is_blocked
     }
 
     pub fn game_over(&self) -> bool {
@@ -74,8 +101,8 @@ impl GameStatus {
         let mut white_can_move = false;
         let (black_pieces, white_pieces) = board.count_pieces();
         if (black_pieces + white_pieces) != 64 {
-            black_can_move = Self::can_player_move(board, Player::Black);
-            white_can_move = Self::can_player_move(board, Player::White);
+            black_can_move = Self::evaluate_can_player_move(board, Player::Black);
+            white_can_move = Self::evaluate_can_player_move(board, Player::White);
         }
 
         Self {
@@ -86,7 +113,7 @@ impl GameStatus {
         }
     }
 
-    fn can_player_move(board: &Board, player: Player) -> bool {
+    fn evaluate_can_player_move(board: &Board, player: Player) -> bool {
         for (x, y) in GridIterator::new() {
             if board.play(player, x, y).unwrap().is_some() {
                 return true;
@@ -94,6 +121,13 @@ impl GameStatus {
         }
 
         false
+    }
+
+    fn can_player_move(&self, player: Player) -> bool {
+        match player {
+            Player::Black => self.black_can_move,
+            Player::White => self.white_can_move,
+        }
     }
 
     fn game_over(&self) -> bool {

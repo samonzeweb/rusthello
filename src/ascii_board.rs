@@ -1,4 +1,4 @@
-use super::board::*;
+use super::{BoardReader, Player};
 
 const ROW_REPARATOR: &str = "  +---+---+---+---+---+---+---+---+\n";
 const LETTERS: &str = "    A   B   C   D   E   F   G   H\n";
@@ -31,7 +31,11 @@ fn cell_to_ascii(piece: Option<Player>) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use crate::rusthello;
+
     use super::*;
+    use rusthello::Board;
+
     #[test]
     fn board_to_ascii_produce_ascii_representation_of_a_board() {
         // The dots aren't parts of the expected board representation.
