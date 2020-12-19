@@ -82,7 +82,76 @@ impl Board {
         BoardIterator::new(self)
     }
 
-    /// Play at the given position for the given player.
+    /// All possible directions to capture opponent pieces.
+    const ALL_DIRECTIONS: [(i8, i8); 8] = [
+        (0, -1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+        (0, 1),
+        (-1, 1),
+        (-1, 0),
+        (-1, -1),
+    ];
+
+    /// Checks if the given player can move to the given coordinates.
+    /// It's faster than play as it does just the bare minimum.
+    pub fn is_move_valid(&self, player: Player, x: u8, y: u8) -> Result<bool, String> {
+        Self::check_coordinates(x, y)?;
+
+        // Only moves targeting empty cells are valids.
+        if self.cells[x as usize][y as usize] != None {
+            return Ok(false);
+        }
+
+        let other_player = player.opponent();
+
+        for direction in Self::ALL_DIRECTIONS.iter() {
+            if let Some(_) = self.can_capture(other_player, x, y, *direction) {
+                return Ok(true);
+            }
+        }
+
+        // No capture is possible in any direction : invalid move
+        Ok(false)
+    }
+
+    /// Checks if a capture is possible for a given move and a given direction.
+    /// Returns a CellsNavigator ready to capture all opponent pieces backward.
+    fn can_capture(
+        &self,
+        opponent: Player,
+        x: u8,
+        y: u8,
+        direction: (i8, i8),
+    ) -> Option<CellsNavigator> {
+        let mut navigator = CellsNavigator::new((x, y), direction).unwrap();
+        let mut found_other_on_path = false;
+        let mut can_capture = false;
+        for position in &mut navigator {
+            let piece = self.cells[position.0 as usize][position.1 as usize];
+            match piece {
+                // Not a valid move.
+                None => break,
+                // Perhaps a valid move.
+                Some(p) if p == opponent => found_other_on_path = true,
+                // If player passes over opponent's pieces and reach a cell containing
+                // one of his pieces, he can capture opponent's pieces (hence it's a valid move).
+                Some(_) => {
+                    can_capture = found_other_on_path;
+                    break;
+                }
+            }
+        }
+        if can_capture {
+            navigator.reverse();
+            return Some(navigator);
+        }
+
+        None
+    }
+
+    /// Plays at the given position for the given player.
     /// If the move is valid a new Board is returned, else None.
     pub fn play(&self, player: Player, x: u8, y: u8) -> Result<Option<Board>, String> {
         Self::check_coordinates(x, y)?;
@@ -92,56 +161,22 @@ impl Board {
             return Ok(None);
         }
 
-        const ALL_DIRECTIONS: [(i8, i8); 8] = [
-            (0, -1),
-            (1, -1),
-            (1, 0),
-            (1, 1),
-            (0, 1),
-            (-1, 1),
-            (-1, 0),
-            (-1, -1),
-        ];
-
         // Explores the 8 possible directions and try to capture opponent pieces.
         // If at least one capture is possible, the move is valid.
         let mut new_board = self.clone();
         let other_player = player.opponent();
         let mut valid_move = false;
-        for direction in ALL_DIRECTIONS.iter() {
-            let mut navigator = CellsNavigation::new((x, y), *direction).unwrap();
-            let mut found_other_on_path = false;
-            let mut can_capture = false;
-            for position in &mut navigator {
-                let piece = self.cells[position.0 as usize][position.1 as usize];
-                match piece {
-                    // Not a valid move.
-                    None => break,
-                    // Perhaps a valid move.
-                    Some(p) if p == other_player => found_other_on_path = true,
-                    // If player passes over opponent's pieces and reach a cell containing
-                    // one of his pieces, he can capture opponent's pieces (hence it's a valid move).
-                    Some(_) => {
-                        can_capture = found_other_on_path;
+        for direction in Self::ALL_DIRECTIONS.iter() {
+            if let Some(navigator) = self.can_capture(other_player, x, y, *direction) {
+                // Let's capture opponent's pieces going backward.
+                valid_move = true;
+                for position in navigator {
+                    // reverse iteration stop at move position
+                    if position == (x, y) {
                         break;
                     }
+                    new_board.cells[position.0 as usize][position.1 as usize] = Some(player);
                 }
-            }
-
-            // The current direction does not allow a capture.
-            if !can_capture {
-                continue;
-            }
-
-            // Let's capture opponent's pieces going backward.
-            valid_move = true;
-            navigator.reverse();
-            for position in &mut navigator {
-                // reverse iteration stop at move position
-                if position == (x, y) {
-                    break;
-                }
-                new_board.cells[position.0 as usize][position.1 as usize] = Some(player);
             }
         }
 
@@ -151,6 +186,18 @@ impl Board {
         } else {
             Ok(None)
         }
+    }
+
+    /// Cheks if a given player can move in at least one position.
+    pub fn can_player_move(&self, player: Player) -> bool {
+        for (x, y) in GridIterator::new() {
+            let can_move = self.is_move_valid(player, x, y).unwrap();
+            if can_move {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Count the pieces on the board.
@@ -268,13 +315,13 @@ impl BoardReader for Board {
 /// The start position is excluded from the iteration.
 /// The iterator can be reversed to go backward.
 #[derive(Debug)]
-struct CellsNavigation {
+struct CellsNavigator {
     current_position: (i8, i8),
     direction: (i8, i8),
 }
 
-impl CellsNavigation {
-    fn new(start: (u8, u8), direction: (i8, i8)) -> Result<CellsNavigation, String> {
+impl CellsNavigator {
+    fn new(start: (u8, u8), direction: (i8, i8)) -> Result<CellsNavigator, String> {
         let (x, y) = start;
         let (dx, dy) = direction;
 
@@ -287,7 +334,7 @@ impl CellsNavigation {
             ));
         }
 
-        Ok(CellsNavigation {
+        Ok(CellsNavigator {
             current_position: (x as i8, y as i8),
             direction: direction,
         })
@@ -298,7 +345,7 @@ impl CellsNavigation {
     }
 }
 
-impl Iterator for CellsNavigation {
+impl Iterator for CellsNavigator {
     type Item = (u8, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -381,6 +428,24 @@ mod tests {
             }
         }
         assert_eq!(count, 64);
+    }
+
+    #[test]
+    fn is_move_valid_returns_none_for_non_empty_cell() {
+        let board = Board::new_start();
+        // cell already occupied by a white piece
+        let is_valid = board.is_move_valid(Player::Black, 3, 3).unwrap();
+        assert!(!is_valid);
+        // cell already occupied by a black piece
+        let is_valid = board.is_move_valid(Player::Black, 3, 4).unwrap();
+        assert!(!is_valid);
+    }
+
+    #[test]
+    fn is_valid_move_returns_true_for_a_valid_one() {
+        let board = Board::new_start();
+        let is_valid = board.is_move_valid(Player::Black, 4, 5).unwrap();
+        assert!(is_valid);
     }
 
     #[test]
@@ -482,7 +547,7 @@ mod tests {
 
     #[test]
     fn cell_navigation() {
-        let mut cn = CellsNavigation::new((3, 3), (1, -1)).unwrap();
+        let mut cn = CellsNavigator::new((3, 3), (1, -1)).unwrap();
         assert_eq!(cn.next(), Some((4, 2)));
         assert_eq!(cn.next(), Some((5, 1)));
         assert_eq!(cn.next(), Some((6, 0)));
@@ -491,7 +556,7 @@ mod tests {
 
     #[test]
     fn cell_navigation_reverse() {
-        let mut cn = CellsNavigation::new((3, 3), (1, -1)).unwrap();
+        let mut cn = CellsNavigator::new((3, 3), (1, -1)).unwrap();
         assert_eq!(cn.next(), Some((4, 2)));
         cn.reverse();
         assert_eq!(cn.next(), Some((3, 3)));

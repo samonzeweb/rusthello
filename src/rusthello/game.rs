@@ -12,12 +12,15 @@ impl Game {
     /// Create a new standard game
     pub fn new() -> Game {
         let board = Board::new_start();
-        Game {
+        let mut game = Game {
             board: board,
             player: Some(Player::Black),
             opponent_is_blocked: false,
-            status: GameStatus::evaluate_board(&board),
-        }
+            status: Default::default(),
+        };
+        game.update_status();
+
+        game
     }
 
     pub fn board(&self) -> &dyn BoardReader {
@@ -88,6 +91,7 @@ impl Game {
     }
 }
 
+#[derive(Default)]
 struct GameStatus {
     black_can_move: bool,
     white_can_move: bool,
@@ -101,8 +105,8 @@ impl GameStatus {
         let mut white_can_move = false;
         let (black_pieces, white_pieces) = board.count_pieces();
         if (black_pieces + white_pieces) != 64 {
-            black_can_move = Self::evaluate_can_player_move(board, Player::Black);
-            white_can_move = Self::evaluate_can_player_move(board, Player::White);
+            black_can_move = board.can_player_move(Player::Black);
+            white_can_move = board.can_player_move(Player::White);
         }
 
         Self {
@@ -111,16 +115,6 @@ impl GameStatus {
             black_pieces,
             white_pieces,
         }
-    }
-
-    fn evaluate_can_player_move(board: &Board, player: Player) -> bool {
-        for (x, y) in GridIterator::new() {
-            if board.play(player, x, y).unwrap().is_some() {
-                return true;
-            }
-        }
-
-        false
     }
 
     fn can_player_move(&self, player: Player) -> bool {
