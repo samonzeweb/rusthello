@@ -299,17 +299,6 @@ impl Iterator for GridIterator {
     }
 }
 
-pub trait BoardReader {
-    fn get_piece(self: &Self, x: u8, y: u8) -> Result<Option<Player>, String>;
-}
-
-impl BoardReader for Board {
-    /// Gets the content of a board cell.
-    fn get_piece(&self, x: u8, y: u8) -> Result<Option<Player>, String> {
-        self.get_piece(x, y)
-    }
-}
-
 /// Iterator to navigate from a start position upto the limit of a board in
 /// a given direction.
 /// The start position is excluded from the iteration.

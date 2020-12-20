@@ -23,7 +23,7 @@ impl Game {
         game
     }
 
-    pub fn board(&self) -> &dyn BoardReader {
+    pub fn board(&self) -> &Board {
         &self.board
     }
 
