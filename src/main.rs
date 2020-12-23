@@ -1,4 +1,4 @@
-use rusthello::{board_to_ascii, Game, Minimax, Player, VirtualPlayer};
+use rusthello::{AlphaBeta, Game, Player, VirtualPlayer, board_to_ascii};
 use std::{
     char, env,
     io::{self, Write},
@@ -12,7 +12,7 @@ enum Choice {
 
 fn main() {
     let (human, depth) = parge_args();
-    let computer = Box::new(Minimax::new(depth)) as Box<dyn VirtualPlayer>;
+    let computer = Box::new(AlphaBeta::new(depth)) as Box<dyn VirtualPlayer>;
 
     let mut game = Game::new();
     while !game.game_over() {
