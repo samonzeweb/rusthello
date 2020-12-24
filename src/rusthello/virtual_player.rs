@@ -13,39 +13,6 @@ pub trait VirtualPlayer {
     fn move_count(&self) -> u32;
 }
 
-/// BestMove is in internal structure to retuens best move found during
-/// game tree exploration.
-struct BestMove {
-    x: u8,
-    y: u8,
-    evaluation: i32,
-}
-
-impl BestMove {
-    /// Choose the best move between the two given, for the given player.
-    fn best_move_for_player(
-        current_player: Player,
-        move_a: Option<BestMove>,
-        move_b: Option<BestMove>,
-    ) -> Option<BestMove> {
-        if move_a.is_none() {
-            return move_b;
-        }
-        if move_b.is_none() {
-            return move_a;
-        }
-
-        let eval_a = move_a.as_ref().unwrap().normalized_evaluation(current_player);
-        let eval_b = move_b.as_ref().unwrap().normalized_evaluation(current_player);
-        return if eval_a >= eval_b { move_a } else { move_b };
-    }
-
-    /// Returns an evaluation, normalized to be 'greater is better' for the player.
-    fn normalized_evaluation(&self, player: Player) -> i32 {
-        Evaluator::sign_for_player(player, self.evaluation)
-    }
-}
-
 /// Implementation of the MiniMax algorithm.
 pub struct Minimax {
     depth: u8,
@@ -325,10 +292,42 @@ impl Evaluator {
     }
 }
 
+/// BestMove is in internal structure to retuens best move found during
+/// game tree exploration.
+struct BestMove {
+    x: u8,
+    y: u8,
+    evaluation: i32,
+}
+
+impl BestMove {
+    /// Choose the best move between the two given, for the given player.
+    fn best_move_for_player(
+        current_player: Player,
+        move_a: Option<BestMove>,
+        move_b: Option<BestMove>,
+    ) -> Option<BestMove> {
+        if move_a.is_none() {
+            return move_b;
+        }
+        if move_b.is_none() {
+            return move_a;
+        }
+
+        let eval_a = move_a.as_ref().unwrap().normalized_evaluation(current_player);
+        let eval_b = move_b.as_ref().unwrap().normalized_evaluation(current_player);
+        return if eval_a >= eval_b { move_a } else { move_b };
+    }
+
+    /// Returns an evaluation, normalized to be 'greater is better' for the player.
+    fn normalized_evaluation(&self, player: Player) -> i32 {
+        Evaluator::sign_for_player(player, self.evaluation)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use super::super::Game;
 
     #[test]
     fn evaluate_returns_zero_for_equals_forces() {
@@ -372,7 +371,33 @@ mod test {
     }
 
     #[test]
+    fn alphabeta_find_a_move() {
+        let board = Board::new_start();
+        let alphabeta = AlphaBeta::new(4);
+        let best_move = alphabeta.compute_move(&board, Player::Black);
+        assert!(best_move.is_some());
+    }
+
+    #[test]
+    fn alphabeta_find_the_best_move() {
+        let mut board = Board::new();
+        board.set_piece(2, 2, Some(Player::White)).unwrap();
+        board.set_piece(3, 2, Some(Player::Black)).unwrap();
+        board.set_piece(2, 3, Some(Player::White)).unwrap();
+        board.set_piece(3, 3, Some(Player::Black)).unwrap();
+        board.set_piece(4, 3, Some(Player::Black)).unwrap();
+        let alphabeta = AlphaBeta::new(1);
+        let best_move = alphabeta.compute_move(&board, Player::White);
+        assert_eq!(best_move, Some((5, 3)));
+    }
+
+    /// This test take more time and is only done when the feature flag is activated.
+    /// Disabling capture show each 'best' move found, and the move counts per
+    /// algorithms.
+    #[cfg(feature="alphabetavsminimax")]
+    #[test]
     fn alpha_beta_behave_the_same_as_minimax() {
+        use super::super::Game;
         let mut game = Game::new();
         let minimax = Minimax::new(4);
         let alpha_beta = AlphaBeta::new(4);
