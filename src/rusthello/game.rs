@@ -52,6 +52,7 @@ impl Game {
 
     fn update_player(&mut self) {
         if self.game_over() {
+            self.player = None;
             return;
         }
 
