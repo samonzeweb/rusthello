@@ -1,5 +1,7 @@
 # rusthello
 
+This project is archived, it is now included in https://github.com/samonzeweb/rusthello-wasm .
+
 ## Purpose
 
 Rusthello is an implementation of the Othello (or Reversi) game,
